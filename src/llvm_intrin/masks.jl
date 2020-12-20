@@ -330,7 +330,7 @@ function icmp_quote(W, cond, bytes, T1, T2 = T1)
 end
 function fcmp_quote(W, cond, T)
     vtyp = vtype(W, T === Float32 ? "float" : "double");
-    cmp_quote(W, "fcmp nsz arcp contract reassoc " * cond, vtyp, T)
+    cmp_quote(W, "fcmp contract " * cond, vtyp, T)
 end
 # @generated function compare(::Val{cond}, v1::Vec{W,I}, v2::Vec{W,I}) where {cond, W, I}
     # cmp_quote(W, cond, sizeof(I), I)
@@ -398,7 +398,7 @@ end
     selty = vtype(W, "i1")
     f = "select"
     if Base.libllvm_version ≥ v"9" && ((T === Float32) || (T === Float64))
-        f *= " nsz arcp contract reassoc"
+        f *= " contract"
     end
     instrs = String[]
     truncate_mask!(instrs, '0', W, 0)
@@ -441,7 +441,7 @@ end
     selty = vtype(W, "i1")
     f = "select"
     if Base.libllvm_version ≥ v"9" && ((T === Float32) || (T === Float64))
-        f *= " nsz arcp contract reassoc"
+        f *= " contract"
     end
     instrs = String["%mask.0 = trunc <$W x i8> %0 to <$W x i1>"]
     # truncate_mask!(instrs, '0', W, 0)

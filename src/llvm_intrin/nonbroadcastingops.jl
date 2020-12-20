@@ -16,7 +16,7 @@ end
     vtyp = "<$W x $typ>"
     instrs = String[]
     push!(instrs, "%ie = insertelement $vtyp zeroinitializer, $typ %1, i32 0")
-    push!(instrs, "%v = fadd nsz arcp contract afn reassoc $vtyp %0, %ie")
+    push!(instrs, "%v = fadd contract $vtyp %0, %ie")
     push!(instrs, "ret $vtyp %v")
     quote
         $(Expr(:meta,:inline))
@@ -41,7 +41,7 @@ end
     vtyp = "<$W x $typ>"
     instrs = String[]
     push!(instrs, "%ie = insertelement $vtyp $(llvmconst(W, T, 1.0)), $typ %1, i32 0")
-    push!(instrs, "%v = fmul nsz arcp contract afn reassoc $vtyp %0, %ie")
+    push!(instrs, "%v = fmul contract $vtyp %0, %ie")
     push!(instrs, "ret $vtyp %v")
     quote
         $(Expr(:meta,:inline))

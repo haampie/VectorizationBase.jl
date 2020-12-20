@@ -53,15 +53,15 @@ end
 for (op,f) ∈ [("sqrt",:sqrt),("fabs",:abs),("floor",:floor),("ceil",:ceil),("trunc",:trunc),("nearbyint",:round)
               ]
     # @eval @generated Base.$f(v1::Vec{W,T}) where {W, T <: Union{Float32,Float64}} = llvmcall_expr($op, W, T, (W,), (T,), "nsz arcp contract afn reassoc")
-    @eval @generated Base.$f(v1::Vec{W,T}) where {W, T <: Union{Float32,Float64}} = llvmcall_expr($op, W, T, (W,), (T,), "fast")
+    @eval @generated Base.$f(v1::Vec{W,T}) where {W, T <: Union{Float32,Float64}} = llvmcall_expr($op, W, T, (W,), (T,), "contract")
 end
 
 
 @generated function Base.round(::Type{Int64}, v1::Vec{W,T}) where {W, T <: Union{Float32,Float64}}
-    llvmcall_expr("lrint", W, Int64, (W,), (T,), "nsz arcp contract afn reassoc")
+    llvmcall_expr("lrint", W, Int64, (W,), (T,), "contract")
 end
 @generated function Base.round(::Type{Int32}, v1::Vec{W,T}) where {W, T <: Union{Float32,Float64}}
-    llvmcall_expr("lrint", W, Int32, (W,), (T,), "nsz arcp contract afn reassoc")
+    llvmcall_expr("lrint", W, Int32, (W,), (T,), "contract")
 end
 @inline Base.trunc(::Type{I}, v::AbstractSIMD{W,T}) where {W, I<:IntegerTypesHW, T <: NativeTypes} = convert(I, v)
 
@@ -136,7 +136,7 @@ end
 for (op,f) ∈ [("minnum",:min),("maxnum",:max),("copysign",:copysign),
               ]
     @eval @generated function Base.$f(v1::Vec{W,T}, v2::Vec{W,T}) where {W, T <: Union{Float32,Float64}}
-        llvmcall_expr($op, W, T, (W for _ in 1:2), (T for _ in 1:2), "nsz arcp contract afn reassoc")
+        llvmcall_expr($op, W, T, (W for _ in 1:2), (T for _ in 1:2), "contract")
     end
 end
 @inline _signbit(v::Vec{W, I}) where {W, I<:Signed} = v & Vec{W,I}(typemin(I))
@@ -155,7 +155,7 @@ end
 # ternary
 for (op,f) ∈ [("fma",:fma),("fmuladd",:muladd)]
     @eval @generated function Base.$f(v1::Vec{W,T}, v2::Vec{W,T}, v3::Vec{W,T}) where {W, T <: Union{Float32,Float64}}
-        llvmcall_expr($op, W, T, (W for _ in 1:3), (T for _ in 1:3), $(f === :fma ? nothing : "nsz arcp contract afn reassoc"))
+        llvmcall_expr($op, W, T, (W for _ in 1:3), (T for _ in 1:3), $(f === :fma ? nothing : "contract"))
     end
 end
 # floating vector, integer scalar
@@ -167,7 +167,7 @@ for (op,f) ∈ [
     ("experimental.vector.reduce.v2.fmul",:vprod)
 ]
     @eval @generated function $f(v1::T, v2::Vec{W,T}) where {W, T <: Union{Float32,Float64}}
-        llvmcall_expr($op, -1, T, (1, W), (T, T), "nsz arcp contract afn reassoc")
+        llvmcall_expr($op, -1, T, (1, W), (T, T), "contract")
     end
 end
 vsum(s::T, v::Vec{W,T}) where {W,T} = Base.FastMath.add_fast(s, vsum(v))
@@ -177,7 +177,7 @@ for (op,f) ∈ [
     ("experimental.vector.reduce.fmin",:vminimum)
 ]
     @eval @generated function $f(v1::Vec{W,T}) where {W, T <: Union{Float32,Float64}}
-        llvmcall_expr($op, -1, T, (W,), (T,), "nsz arcp contract afn reassoc")
+        llvmcall_expr($op, -1, T, (W,), (T,), "contract")
     end
 end
 for (op,f,S) ∈ [

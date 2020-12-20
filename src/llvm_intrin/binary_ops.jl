@@ -123,7 +123,7 @@ end
 
 for (op,f,ff) ∈ [("fadd",:+,:vadd),("fsub",:-,:vsub),("fmul",:*,:vmul),("fdiv",:/,:vdiv),("frem",:%,:vrem)]
     @eval begin
-        @generated Base.$f(v1::Vec{W1,T}, v2::Vec{W2,T}) where {W1,W2,T<:Union{Float32,Float64}} = binary_op($(op * " nsz arcp contract afn reassoc"), W1, T, W2)
+        @generated Base.$f(v1::Vec{W1,T}, v2::Vec{W2,T}) where {W1,W2,T<:Union{Float32,Float64}} = binary_op($(op * " nsz arcp contract"), W1, T, W2)
         @generated $ff(v1::Vec{W1,T}, v2::Vec{W2,T}) where {W1,W2,T<:Union{Float32,Float64}} = binary_op($op, W1, T, W2)
         @inline $ff(a::T, b::T) where {T <: Union{Float32,Float64}} = $f(a, b)
     end
