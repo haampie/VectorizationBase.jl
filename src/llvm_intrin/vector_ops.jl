@@ -68,6 +68,7 @@ end
     final_vecs = [Symbol(:v, j, :_, i-1) for j=1:W]
 
     return quote
+        $(Expr(:meta,:inline))
         vecs = unrolleddata(xs)
         $(shuffles...)
         VecUnroll(tuple($(final_vecs...)))
