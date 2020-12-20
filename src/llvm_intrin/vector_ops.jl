@@ -27,3 +27,49 @@ end
     end
 end
 
+@generated function vtranspose(xs::VecUnroll{L,W}) where {L,W}
+    @assert L+1 == W
+
+    i = 1
+
+    ids = zeros(Int, W, 2)
+
+    shuffles = Expr[]
+
+    for j = 1:W
+        v0 = Symbol(:v, j, :_0)
+        push!(shuffles, :($v0 = vecs[$j]))
+    end
+
+    while 2^i ≤ W
+
+        block_size = 2^i
+
+        # Shuffle the indices
+        copyto!(ids, 0:2W-1)
+        for block = 1:block_size:W, row = block+block_size÷2:block+block_size-1
+            ids[row, 1], ids[row-block_size÷2, 2] = ids[row-block_size÷2, 2], ids[row, 1]
+        end
+
+        # Generate shuffle statements
+        for block = 1:block_size:W, col = block:block+block_size÷2-1
+            from, to = col, col+block_size÷2
+
+            v1_prev, v2_prev = Symbol(:v, from, :_, i - 1), Symbol(:v, to, :_, i - 1)
+            v1_curr, v2_curr = Symbol(:v, from, :_, i), Symbol(:v, to, :_, i)
+
+            push!(shuffles, :($v1_curr = shufflevector($v1_prev, $v2_prev, Val{tuple($(ids[:, 1]...))}())))
+            push!(shuffles, :($v2_curr = shufflevector($v1_prev, $v2_prev, Val{tuple($(ids[:, 2]...))}())))
+        end
+
+        i += 1
+    end
+
+    final_vecs = [Symbol(:v, j, :_, i-1) for j=1:W]
+
+    return quote
+        vecs = unrolleddata(xs)
+        $(shuffles...)
+        VecUnroll(tuple($(final_vecs...)))
+    end
+end
