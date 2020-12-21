@@ -74,11 +74,6 @@ end
                     # a vectors, you can just as well take the full vector.
                     if vec_offset == 0
                         push!(shuffles, :($vec_name = vecs[$vec_idx]))
-                        vec_offset += consume # vector is not yet consumed.
-                        if vec_offset ≥ W
-                            vec_offset -= W
-                            vec_idx += 1
-                        end
                     else                    
                         if vec_idx < nvecs
                             # If we have a next vector, consume from that.
@@ -90,7 +85,11 @@ end
                             perm = :(Val{(tuple($(ids...)))}())
                             push!(shuffles, :($vec_name = shufflevector(vecs[$vec_idx], $perm)))
                         end
-                        vec_offset += consume - W
+                    end
+
+                    vec_offset += consume
+                    if vec_offset ≥ W
+                        vec_offset -= W
                         vec_idx += 1
                     end
                 end
@@ -138,6 +137,7 @@ end
     end
 
     return quote
+        $(Expr(:meta,:inline))
         vecs = unrolleddata(xs)
         $(shuffles...)
         return VecUnroll(tuple($(vecs...)))
