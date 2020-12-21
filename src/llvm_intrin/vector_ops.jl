@@ -133,6 +133,7 @@ end
     vecs = []
 
     for bj = 1:W:rows, cj = 0:W-1, bi = 1:W:cols
+        bj + cj > rows && continue
         push!(vecs, Symbol(:v_, bj, :_, bi, :_, cj + 1, :_, iter - 1))
     end
 
