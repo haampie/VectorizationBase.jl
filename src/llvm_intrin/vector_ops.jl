@@ -27,50 +27,118 @@ end
     end
 end
 
-@generated function vtranspose(xs::VecUnroll{L,W}) where {L,W}
-    @assert L+1 == W
+@generated function vtranspose(xs::VecUnroll{L,W,T,V}, ::Val{R}) where {L,W,T,V,R}
+    # the number of Vecs is independent of the number of rows.
+    nvecs = L + 1
 
-    i = 1
+    rows = R
 
-    ids = zeros(Int, W, 2)
+    # Only assume we have a rectangular matrix.
+    @assert (nvecs * W) % rows == 0
 
+    cols = nvecs * W ÷ rows
     shuffles = Expr[]
 
-    for j = 1:W
-        v0 = Symbol(:v, j, :_0)
-        push!(shuffles, :($v0 = vecs[$j]))
+    # Number of Vec's per row.
+    block_rows = ÷(rows, W, RoundUp)
+    block_cols = ÷(cols, W, RoundUp)
+
+    vec_idx, vec_offset = 1, 0
+
+    # Example with vector size == 2, and rows == 3, 4 input vectors
+    # then we pad them into size 4x4:
+    #   j=1   j=2
+    #     +-----+----+
+    # i=1 | a b | c .| and store them in 8 registers indexed
+    #     | a b | d .| by block (i, j) and column k as
+    #     | ----+----+ v_i_j_k_0 where 0 means 0'th iteration
+    # i=2 | b c | d .| of the shuffle algorithm.
+    #     | . . | . .|
+    #     +-----+----+
+    # and apply the tranpose kernel on every 2x2 block.
+    # lastly we tranpose the blocks.
+
+    for bj = 1:W:cols # loop over blocks →, active col idx = bj+cj
+        for cj = 0:W-1 # loop over cols per block →
+            for bi = 1:W:rows # loop over blocks ↓
+
+                vec_name = Symbol(:v, :_, bi, :_, bj, :_, cj+1, :_0)
+
+                # pad columns with zeros..
+                if vec_idx > nvecs
+                    push!(shuffles, :($vec_name = zero($V)))
+                else
+                    consume = min(W, rows - bi + 1)
+
+                    # If we just take the first `consume` elements of
+                    # a vectors, you can just as well take the full vector.
+                    if vec_offset == 0
+                        push!(shuffles, :($vec_name = vecs[$vec_idx]))
+                        vec_offset += consume # vector is not yet consumed.
+                        if vec_offset ≥ W
+                            vec_offset -= W
+                            vec_idx += 1
+                        end
+                    else                    
+                        if vec_idx < nvecs
+                            # If we have a next vector, consume from that.
+                            ids = circshift(0:2W-1, -vec_offset)[1:W]
+                            perm = :(Val{(tuple($(ids...)))}())
+                            push!(shuffles, :($vec_name = shufflevector(vecs[$vec_idx], vecs[$(vec_idx+1)], $perm)))
+                        else
+                            ids = circshift(0:W-1, -vec_offset)[1:W]
+                            perm = :(Val{(tuple($(ids...)))}())
+                            push!(shuffles, :($vec_name = shufflevector(vecs[$vec_idx], $perm)))
+                        end
+                        vec_offset += consume - W
+                        vec_idx += 1
+                    end
+                end
+            end
+        end
     end
 
-    while 2^i ≤ W
+    iter = 1
 
-        block_size = 2^i
+    # now shuffle within each block of size W × W using the W lg W algorithm.
+    while 2^iter ≤ W
+        block_size = 2^iter
 
-        # Shuffle the indices
-        copyto!(ids, 0:2W-1)
-        for block = 1:block_size:W, row = block+block_size÷2:block+block_size-1
-            ids[row, 1], ids[row-block_size÷2, 2] = ids[row-block_size÷2, 2], ids[row, 1]
+        for bj = 1:W:cols # loop over blocks →, active col idx = bj+cj
+            for bi = 1:W:rows # loop over blocks ↓
+                ids = zeros(Int, W, 2)
+
+                # Shuffle the indices
+                copyto!(ids, 0:2W-1)
+                for block = 1:block_size:W, row = block+block_size÷2:block+block_size-1
+                    ids[row, 1], ids[row-block_size÷2, 2] = ids[row-block_size÷2, 2], ids[row, 1]
+                end
+
+                # Generate shuffle statements
+                for block = 1:block_size:W, col = block:block+block_size÷2-1
+                    from, to = col, col+block_size÷2
+
+                    v1_prev, v2_prev = Symbol(:v_, bi, :_, bj, :_, from, :_, iter - 1), Symbol(:v_, bi, :_, bj, :_, to, :_, iter - 1)
+                    v1_curr, v2_curr = Symbol(:v_, bi, :_, bj, :_, from, :_, iter), Symbol(:v_, bi, :_, bj, :_, to, :_, iter)
+
+                    push!(shuffles, :($v1_curr = shufflevector($v1_prev, $v2_prev, Val{tuple($(ids[:, 1]...))}())))
+                    push!(shuffles, :($v2_curr = shufflevector($v1_prev, $v2_prev, Val{tuple($(ids[:, 2]...))}())))
+                end
+            end
         end
-
-        # Generate shuffle statements
-        for block = 1:block_size:W, col = block:block+block_size÷2-1
-            from, to = col, col+block_size÷2
-
-            v1_prev, v2_prev = Symbol(:v, from, :_, i - 1), Symbol(:v, to, :_, i - 1)
-            v1_curr, v2_curr = Symbol(:v, from, :_, i), Symbol(:v, to, :_, i)
-
-            push!(shuffles, :($v1_curr = shufflevector($v1_prev, $v2_prev, Val{tuple($(ids[:, 1]...))}())))
-            push!(shuffles, :($v2_curr = shufflevector($v1_prev, $v2_prev, Val{tuple($(ids[:, 2]...))}())))
-        end
-
-        i += 1
+        iter += 1
     end
 
-    final_vecs = [Symbol(:v, j, :_, i-1) for j=1:W]
+    # finally return the vecs we need.
+    vecs = []
+
+    for bj = 1:W:rows, cj = 0:W-1, bi = 1:W:cols
+        push!(vecs, Symbol(:v_, bj, :_, bi, :_, cj + 1, :_, iter - 1))
+    end
 
     return quote
-        $(Expr(:meta,:inline))
         vecs = unrolleddata(xs)
         $(shuffles...)
-        VecUnroll(tuple($(final_vecs...)))
+        return VecUnroll(tuple($(vecs...)))
     end
 end
