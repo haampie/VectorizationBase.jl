@@ -27,6 +27,28 @@ end
     end
 end
 
+function vtranspose(xs::VecUnroll{3,8}, ::Val{4})
+    vecs = unrolleddata(xs)
+
+    v1_1 = vecs[1]
+    v2_1 = vecs[2]
+    v3_1 = vecs[3]
+    v4_1 = vecs[4]
+
+    # skip the first iteration. second iteration acts on distance 2.
+    v1_2 = shufflevector(v1_1, v2_1, Val{(0,  4,  8, 12,  1,  5,  9, 13)}())
+    v2_2 = shufflevector(v1_1, v2_1, Val{(2,  6, 10, 14,  3,  7, 11, 15)}())
+    v3_2 = shufflevector(v3_1, v4_1, Val{(0,  4,  8, 12,  1,  5,  9, 13)}())
+    v4_2 = shufflevector(v3_1, v4_1, Val{(2,  6, 10, 14,  3,  7, 11, 15)}())
+
+    v1_3 = shufflevector(v1_2, v3_2, Val{(0,  1,  2,  3,  8,  9, 10, 11)}())
+    v2_3 = shufflevector(v1_2, v3_2, Val{(4,  5,  6,  7, 12, 13, 14, 15)}())
+    v3_3 = shufflevector(v2_2, v4_2, Val{(0,  1,  2,  3,  8,  9, 10, 11)}())
+    v4_3 = shufflevector(v2_2, v4_2, Val{(4,  5,  6,  7, 12, 13, 14, 15)}())
+
+    return VecUnroll((v1_3, v2_3, v3_3, v4_3))
+end
+
 @generated function vtranspose(xs::VecUnroll{L,W,T,V}, ::Val{R}) where {L,W,T,V,R}
     # the number of Vecs is independent of the number of rows.
     nvecs = L + 1
