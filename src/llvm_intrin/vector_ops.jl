@@ -56,7 +56,6 @@ end
     v2_1 = vecs[2]
     v3_1 = vecs[3]
 
-    # skip the first iteration. second iteration acts on distance 2.
     v1_2 = shufflevector(v1_1, v2_1, Val{(0,  1,  3,  4,  6,  9, 12, 15)}())
     v2_2 = shufflevector(v1_1, v2_1, Val{(2,  5,  7,  8, 10, 11, 13, 14)}())
     v3_2 = v3_1
@@ -70,6 +69,18 @@ end
     v3_4 = v3_3
 
     return VecUnroll((v1_4, v2_4, v3_4))
+end
+
+@inline function vtranspose(xs::VecUnroll{1,8}, ::Val{32})
+    vecs = unrolleddata(xs)
+
+    v1_1 = vecs[1]
+    v2_1 = vecs[2]
+
+    v1_2 = shufflevector(v1_1, v2_1, Val{(0,  2,  4,  6,  8, 10, 12, 14)}())
+    v2_2 = shufflevector(v1_1, v2_1, Val{(1,  3,  5,  7,  9, 11, 13, 15)}())\
+
+    return VecUnroll((v1_2, v2_2))
 end
 
 @generated function vtranspose(xs::VecUnroll{L,W,T,V}, ::Val{R}) where {L,W,T,V,R}
