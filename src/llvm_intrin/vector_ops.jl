@@ -71,14 +71,14 @@ end
     return VecUnroll((v1_4, v2_4, v3_4))
 end
 
-@inline function vtranspose(xs::VecUnroll{1,8}, ::Val{32})
+@inline function vtranspose(xs::VecUnroll{1,8}, ::Val{2})
     vecs = unrolleddata(xs)
 
     v1_1 = vecs[1]
     v2_1 = vecs[2]
 
     v1_2 = shufflevector(v1_1, v2_1, Val{(0,  2,  4,  6,  8, 10, 12, 14)}())
-    v2_2 = shufflevector(v1_1, v2_1, Val{(1,  3,  5,  7,  9, 11, 13, 15)}())\
+    v2_2 = shufflevector(v1_1, v2_1, Val{(1,  3,  5,  7,  9, 11, 13, 15)}())
 
     return VecUnroll((v1_2, v2_2))
 end
