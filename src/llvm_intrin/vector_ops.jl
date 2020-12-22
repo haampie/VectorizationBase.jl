@@ -27,7 +27,7 @@ end
     end
 end
 
-function vtranspose(xs::VecUnroll{3,8}, ::Val{4})
+@inline function vtranspose(xs::VecUnroll{3,8}, ::Val{4})
     vecs = unrolleddata(xs)
 
     v1_1 = vecs[1]
