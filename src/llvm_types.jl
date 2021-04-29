@@ -208,7 +208,7 @@ function build_llvmcall_expr(op, WR, R::Symbol, WA, TA, flags::String)
 end
 
 const MODSTRING = Ref(String[])
-const NUMCALLS = Ref{Int}()
+const NUMCALLS = Ref(0)
 
 @static if VERSION ≥ v"1.6.0-DEV.674"
     function llvmcall_expr(
