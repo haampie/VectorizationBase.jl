@@ -219,7 +219,10 @@ end
                 $instr
             }
         """
-        contains(mod, "2305843009213693950") && throw(mod)
+        haskey(ENV, "LLVMCALL_EXPR_FILE") && open(ENV["LLVMCALL_EXPR_FILE"], "a") do io
+            println(io, mod)
+        end
+
         # attributes #0 = { alwaysinline }
         call = Expr(:call, LLVMCALL, (mod::String, "entry")::Tuple{String,String}, ret, args)
         for arg ∈ arg_syms
