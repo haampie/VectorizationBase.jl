@@ -207,9 +207,6 @@ function build_llvmcall_expr(op, WR, R::Symbol, WA, TA, flags::String)
     end
 end
 
-const MODSTRING = Ref(String[])
-const NUMCALLS = Ref(0)
-
 @static if VERSION ≥ v"1.6.0-DEV.674"
     function llvmcall_expr(
         decl::String, instr::String, ret::Union{Symbol,Expr}, args::Expr, lret::String, largs::Vector{String}, arg_syms::Vector, callonly::Bool = false
@@ -222,9 +219,7 @@ const NUMCALLS = Ref(0)
                 $instr
             }
         """
-        push!(MODSTRING[], mod)
-        length(MODSTRING[]) > 10 && popfirst!(MODSTRING[])
-        NUMCALLS[] += 1
+        contains(mod, "2305843009213693950") && throw(mod)
         # attributes #0 = { alwaysinline }
         call = Expr(:call, LLVMCALL, (mod::String, "entry")::Tuple{String,String}, ret, args)
         for arg ∈ arg_syms
